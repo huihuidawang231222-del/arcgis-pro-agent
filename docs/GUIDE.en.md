@@ -96,6 +96,8 @@ Select the vendor API engine, open **API密钥与模型设置**, and enter a pro
 
 Credentials are stored only at `%LOCALAPPDATA%\ArcGISProAgent\providers.json`, encrypted using current-user Windows DPAPI. Never commit that file. API mode currently supports Chat Completions compatible protocols, not every vendor's native protocol. Consult the vendor console for current model availability, pricing, credits and permissions.
 
+The model settings expose a per-request timeout of 30–1800 seconds, defaulting to 300. Long prompts and reasoning models may need more time; the task UI reports elapsed waiting time every 15 seconds. Unlimited decision rounds do not disable HTTP timeouts. A timeout preserves conversation state without automatically resending the request or executing tool calls whose response was not received. For isolated testing, the transport accepts `--config <local-config-file>`; credentials must still be decryptable by the current Windows user and must never be committed.
+
 For Zhipu, standard API and Coding subscriptions require matching credentials/endpoints. An API Key ID is not the complete key. Compatibility logic adjusts thinking parameters for `glm-5.3-flash` on the official Zhipu endpoint; this does not guarantee your account has model access. HTTP 401 means authentication failed: check the complete key, account and endpoint. For 429, inspect the provider business code for rate/quota information. Changing model names does not repair invalid credentials.
 
 System-proxy use can be toggled locally. Direct connections worked in the development environment; forcing the system proxy previously produced a TLS EOF. Not every proxy combination is verified. Keep certificate validation enabled.

@@ -37,6 +37,12 @@ def settings(profile=None):
         raise RuntimeError("模型地址须为不含凭据和查询参数的HTTPS地址。")
     return p
 
+class ModelRequestError(RuntimeError):
+    def __init__(self, message, kind="request_error"):
+        super().__init__(message)
+        self.kind = kind
+
+
 class Model:
     def __init__(self, config):
         self.config = config
@@ -47,6 +53,12 @@ class Model:
         if not assembly.is_file():
             raise RuntimeError("请先运行scripts/build.ps1编译外部模型传输组件。")
         self.process = subprocess.Popen([dotnet,str(assembly),config["id"]],stdin=subprocess.PIPE,stdout=subprocess.PIPE,stderr=subprocess.DEVNULL,text=True,encoding="utf-8")
+        self.inbox = queue.Queue()
+        def reader():
+            for line in self.process.stdout:
+                self.inbox.put(line)
+            self.inbox.put(None)
+        threading.Thread(target=reader,daemon=True).start()
     def ask(self, messages, tools):
         p = self.config
         body = dict(model=p["model"], messages=messages, tools=tools, tool_choice="auto", max_tokens=p.get("maxTokens",4096), stream=False)
@@ -54,12 +66,22 @@ class Model:
             body["thinking"] = {"type":"disabled"}
         self.process.stdin.write(json.dumps(body,ensure_ascii=False)+"\n")
         self.process.stdin.flush()
-        line = self.process.stdout.readline()
+        started = time.monotonic()
+        budget = p.get("timeoutSeconds", 300)
+        while True:
+            try:
+                line = self.inbox.get(timeout=15)
+                break
+            except queue.Empty:
+                elapsed = int(time.monotonic()-started)
+                print(f"等待模型响应 {elapsed} 秒 / 单次超时 {budget} 秒；可点击停止",flush=True)
+                if elapsed >= budget+30:
+                    raise ModelRequestError("模型传输等待超时；会话已保留，可继续。未自动重试，此轮未执行GIS工具。", "timeout")
         if not line:
             raise RuntimeError("模型传输组件退出，请检查.NET运行时和本机配置。")
         answer = json.loads(line)
         if "error" in answer:
-            raise RuntimeError(answer["error"])
+            raise ModelRequestError(answer["error"], answer.get("errorType", "request_error"))
         choice = answer["choices"][0]
         if choice.get("finish_reason") == "length":
             raise RuntimeError("模型输出被截断，未执行此轮工具；请提高输出上限后恢复。")
@@ -297,7 +319,7 @@ def run(args):
         else:
             report.update(status="partial",stopReason="turn_limit",message=f"达到本轮 {args.max_turns} 轮决策上限，任务已暂停；已有成果和记录已保留，输入“继续”可接续。这是本地Agent任务保护限制，不是API账户调用次数限制。")
     except (Exception,KeyboardInterrupt) as exc:
-        report.update(status="interrupted",stopReason="request_error",message=str(exc),pendingJobs=sorted(pending))
+        report.update(status="interrupted",stopReason="model_timeout" if isinstance(exc,ModelRequestError) and exc.kind=="timeout" else "request_error",message=str(exc),pendingJobs=sorted(pending))
     finally:
         # Complete interrupted protocol turns without pretending their side effects failed.
         reconcile_interrupted_messages(messages, pending)

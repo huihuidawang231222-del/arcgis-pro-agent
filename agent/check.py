@@ -1,5 +1,6 @@
 """Negative-path host checks; not model autonomy or live-Pro evidence."""
 import argparse,contextlib,io,json,tempfile,unittest
+from types import SimpleNamespace
 from pathlib import Path
 from unittest.mock import patch
 import run
@@ -158,5 +159,42 @@ class HostChecks(unittest.TestCase):
         self.assertEqual(report['modelTurns'],66)
         self.assertEqual(report['maxTurns'],0)
         self.assertEqual(report['_exitCode'],0)
+
+    def test_model_wait_heartbeat_does_not_resubmit_request(self):
+        class Inbox:
+            calls=0
+            def get(self,timeout):
+                self.calls+=1
+                if self.calls==1:raise run.queue.Empty()
+                return json.dumps({'choices':[{'finish_reason':'stop','message':{'role':'assistant','content':'OK'}}]})
+        model=run.Model.__new__(run.Model)
+        model.config={'model':'synthetic','timeoutSeconds':300}
+        model.process=SimpleNamespace(stdin=io.StringIO())
+        model.inbox=Inbox()
+        output=io.StringIO()
+        with patch.object(run.time,'monotonic',side_effect=[0,15]),contextlib.redirect_stdout(output):
+            message,_=model.ask([],[])
+        self.assertEqual(message['content'],'OK')
+        self.assertIn('等待模型响应 15 秒',output.getvalue())
+        self.assertEqual(model.process.stdin.getvalue().count('\n'),1)
+
+    def test_transport_timeout_keeps_specific_stop_reason(self):
+        report,calls=self.execute([run.ModelRequestError('模型响应等待超时','timeout')])
+        self.assertEqual(report['status'],'interrupted')
+        self.assertEqual(report['stopReason'],'model_timeout')
+        self.assertEqual(len(calls),1)
+        self.assertFalse(report['modelInvoked'])
+
+    def test_unresponsive_transport_has_bounded_wait(self):
+        class Inbox:
+            def get(self,timeout):raise run.queue.Empty()
+        model=run.Model.__new__(run.Model)
+        model.config={'model':'synthetic','timeoutSeconds':30}
+        model.process=SimpleNamespace(stdin=io.StringIO())
+        model.inbox=Inbox()
+        with patch.object(run.time,'monotonic',side_effect=[0,61]),contextlib.redirect_stdout(io.StringIO()):
+            with self.assertRaises(run.ModelRequestError) as error:model.ask([],[])
+        self.assertEqual(error.exception.kind,'timeout')
+        self.assertEqual(model.process.stdin.getvalue().count('\n'),1)
 
 if __name__=='__main__':unittest.main()

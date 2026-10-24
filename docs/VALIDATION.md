@@ -22,6 +22,10 @@ Public-export check on 2026-10-24: bridge/transport build succeeded with zero wa
 
 ## Not established / 尚不能声称
 
+Timeout follow-up: 19 host checks pass, covering waiting heartbeats without request resubmission, structured timeout classification and bounded handling of an unresponsive transport. Transport and desktop builds pass. The new profile timeout is 300 seconds and configurable; changing it is not proof that a provider/network slowdown has been resolved.
+
+超时补充：19项宿主检查通过，覆盖等待提示不重复提交请求、结构化超时分类及传输进程无响应时有界退出；传输器和界面编译通过。新配置默认300秒且可调整，增加超时本身不能证明服务端或网络慢响应已被修复。
+
 Unlimited-turn update: the API agent now defaults to `--max-turns 0` (no local decision cap). All 16 host checks pass, including 65 tool decisions followed by a deliberate agent finish on round 66, without triggering a turn limit. Explicit positive caps remain optional and are tested separately. This synthetic check does not imply unlimited provider quota or production reliability.
 
 不限轮次更新：API Agent 默认 `--max-turns 0`，取消本地决策轮次上限。16 项宿主检查全部通过，包括连续 65 轮工具决策后于第 66 轮主动结束，未触发轮次上限。手动正整数上限仍可选并独立测试。这是合成验证，不代表厂商额度无限或生产可靠性已达标。
