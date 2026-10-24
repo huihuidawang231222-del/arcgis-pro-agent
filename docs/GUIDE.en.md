@@ -46,7 +46,7 @@ Ensure `Get-Command codex` finds your installed CLI, then run:
 .\scripts\install-codex-plugin.ps1
 ```
 
-The installer synchronizes bundled MCP files and the icon, registers the local marketplace at `.agents/plugins/marketplace.json`, and installs `arcgis-pro-map@arcgis-local`. It updates local Codex plugin configuration; it does not upload your GIS data. The Codex plugin is version 0.4.1 and the Pro bridge is 0.4.0; these are versioned separately.
+The installer synchronizes bundled MCP files and the icon, registers the local marketplace at `.agents/plugins/marketplace.json`, and installs `arcgis-pro-map@arcgis-local`. It updates local Codex plugin configuration; it does not upload your GIS data. The Codex plugin is version 0.4.1 and the Pro bridge is 0.5.0; these are versioned separately.
 
 Find **ArcGIS Pro 自然语言制图** on the plugin page. Open a new chat and select the plugin. Refresh the plugin list or restart the client if tools are unavailable. The MCP name is `arcgis-pro-map`. Avoid registering duplicate MCP entries for the same bridge.
 
@@ -155,7 +155,7 @@ Build checks:
 pwsh -NoProfile -File .\scripts\test-model-compatibility.ps1
 ```
 
-See [VALIDATION.md](VALIDATION.md). One successful map does not establish production acceptance for all 39 operations.
+See [VALIDATION.md](VALIDATION.md). One successful map does not establish production acceptance for all 46 operations.
 
 ## 8. Development, updates and uninstall
 
@@ -166,3 +166,12 @@ After updating the Pro bridge, save and restart Pro. Reinstall or refresh Codex/
 To uninstall, remove the plugin in the relevant client. Save and close Pro, then remove this bridge's `.esriAddinX` from its GUID directory. Back up and manage local model settings/logs separately. Removing a plugin does not delete GIS source data.
 
 Before contributing, run `python scripts/scan-public-source.py` and inspect `git diff --cached`. Exclude credentials, account settings, logs and business data. Submit reproducible steps, versions and sanitized errors rather than private projects.
+
+
+## Resume interrupted tasks
+
+Click **继续上次任务 (Resume last task)** to restore the latest valid checkpoint for the original Pro process and map without rewriting the goal. Testing a model preserves task records. Another saved model can continue the task. Missing matches are reported without silently starting a new task. Automatic matching after restarting Pro is not supported.
+
+Checkpoints are saved at startup and before tool execution, using temporary-file replacement. Resuming checks the map and existing outputs first. Requests omit repeated historical operation catalogs; original receipts remain complete on disk. Token counts are not a bill. Local decision rounds remain unlimited by default.
+
+GLM-5.3-Flash and FlashX require thinking enabled. Standard API usage is billed by Token; promotional packages can be model-specific. Resource exhaustion preserves the task without automatic retries or model switching. Offline checks do not replace a real resumed workflow and map acceptance.

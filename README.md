@@ -2,6 +2,8 @@
 
 [中文教程](docs/GUIDE.zh-CN.md) · [English guide](docs/GUIDE.en.md) · [Architecture / 架构](docs/ARCHITECTURE.md) · [Validation / 验证](docs/VALIDATION.md)
 
+[0.5.0 更新与验收状态 / Update and acceptance status](docs/UPDATE-0.5.0.md)：新版完整成图复测尚未通过 / Full mapping acceptance remains pending.
+
 用自然语言描述制图目标，让 Agent 通过 MCP 操作本机 ArcGIS Pro：读取数据、空间分析、符号化、标注、导出 PNG/PDF。支持 Codex 插件、DeepSeek Harness 插件及可选的原生 Windows 聊天界面。
 
 Describe a mapping goal in natural language. An agent inspects data, runs supported analysis, styles layers, labels features and exports PNG/PDF through a local ArcGIS Pro MCP bridge. Use the Codex plugin, DeepSeek Harness plugin, or optional native Windows interface.
@@ -42,12 +44,12 @@ Harness 需按教程生成本机配置，再在 **插件 → 添加插件** 中�
 
 ## Capabilities / 能力
 
-- 14 MCP tools, 39 allowlisted processing operations: vector overlay, projection, raster terrain/hydrology, density, interpolation and raster arithmetic.
+- 14 MCP tools, 46 allowlisted processing operations: vector overlay, projection, raster terrain/hydrology, density, interpolation and raster arithmetic.
 - Autonomous observation → tool calls → result inspection → styling → export, rather than asking users to author plan JSON.
 - Codex/Harness manage their own accounts; optional API mode supports **Chat Completions compatible** APIs. It does not support every vendor protocol.
 - Local named pipes restricted to the current Windows user; process/map/snapshot checks guard against stale targets.
 
-- 14 个 MCP 工具、39 项受控处理：矢量叠置、投影、栅格地形/水文、密度、插值及栅格运算。
+- 14 个 MCP 工具、46 项受控处理：矢量叠置、投影、栅格地形/水文、密度、插值及栅格运算。
 - Agent 自主观察、调用工具、检查结果、符号化和导出，用户无需编写计划 JSON。
 - Codex/Harness 沿用宿主账户；可选 API 模式支持 **Chat Completions 兼容协议**，不代表所有厂商协议均已适配。
 - 命名管道限当前 Windows 用户，使用进程、地图和数据快照约束执行目标。

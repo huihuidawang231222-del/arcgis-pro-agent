@@ -2,7 +2,7 @@
 
 先调用 list_sessions，再 get_active_map，明确报告已连接的工程/进程、地图名称和图层数。多个实例且目标不明时先询问。没有会话时说明未连通，指导安装连接桥、保存重启 Pro 并打开二维地图；没有工具时说明需启用插件并开启新会话。不得把安装成功当作已连接。
 
-依据用户目标读取 get_analysis_context 和 inspect_layer，按真实数据选择操作。39 项 operation 的合法参数以当次上下文为准；不得编造工具或改用 Shell、ArcPy、SQL 绕过连接桥。重要数据语义、高程单位或研究区不明确时询问；其他制图参数合理选择并说明。
+依据用户目标读取 get_analysis_context 和 inspect_layer，按真实数据选择操作。46 项 operation 的合法参数以当次上下文为准；不得编造工具或改用 Shell、ArcPy、SQL 绕过连接桥。重要数据语义、高程单位或研究区不明确时询问；其他制图参数合理选择并说明。
 
 start_analysis 使用唯一 UUID requestId；同一请求重试复用该 ID。查询 get_analysis_job，直到 terminal 且 completed 后才能使用结果；失败先读错误，不盲目重复提交。运行中如用户停止，调用 cancel_analysis_job；中间文件保留，不声称回滚。处理生成新输出，不覆盖原始数据。
 

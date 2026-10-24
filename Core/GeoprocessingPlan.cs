@@ -74,6 +74,9 @@ public sealed class GeoprocessingPlan {
                 if(!expected.Split('|').Contains(resolved[i].Kind))throw new InvalidOperationException(step.Operation+"的输入类型应为"+expected+"，实际为"+resolved[i].Kind);
             }
             if(tool.RequiresMeters&&!resolved[0].ProjectedMeters)throw new InvalidOperationException(step.Operation+"需要米制投影输入，请先添加project_vector/project_raster步骤。");
+            if(step.Operation=="feature_density"&&resolved[0].Shape!="Polygon")throw new InvalidOperationException("面积密度计算需要面要素。");
+            if(step.Operation=="create_grid"&&step.Inputs[0].StartsWith("s"))throw new InvalidOperationException("创建网格需使用已加入地图的米制输入；投影完成后刷新上下文，再创建网格。");
+            if(step.Operation=="global_moran"&&step.Inputs[0].StartsWith("s"))throw new InvalidOperationException("全局置换检验需先完成输入分析并刷新上下文，再对真实地图图层执行。");
             if(step.Operation=="buffer"&&resolved[0].Wkid==0)throw new InvalidOperationException("缓冲输入坐标系未知。");
             if(new[]{"slope","aspect"}.Contains(step.Operation)&&resolved[0].Wkid==0)throw new InvalidOperationException("地形计算需已知坐标系。");
             if(new[]{"polygon_to_line","raster_clip","clip"}.Contains(step.Operation)&&resolved[step.Operation=="polygon_to_line"?0:1].Shape is not ("Polygon" or ""))throw new InvalidOperationException(step.Operation+"需要面要素。");
@@ -102,6 +105,7 @@ public sealed record GpRule(string Type,bool Required=false,double Min=0,double 
             "fields"=>value.ValueKind==JsonValueKind.Array&&value.GetArrayLength()<=20&&value.EnumerateArray().All(v=>v.ValueKind==JsonValueKind.String&&GeoprocessingPlan.FieldPattern.IsMatch(v.GetString()??"")),
             "text"=>value.ValueKind==JsonValueKind.String&&value.GetString()!.Length<=500&&!value.GetString()!.Any(char.IsControl),
             "ranges"=>value.ValueKind==JsonValueKind.Array&&value.GetArrayLength()>0&&value.GetArrayLength()<=100&&value.EnumerateArray().All(r=>r.ValueKind==JsonValueKind.Array&&r.GetArrayLength()==3&&r.EnumerateArray().All(v=>v.ValueKind==JsonValueKind.Number&&v.TryGetDouble(out double x)&&double.IsFinite(x))),
+            "values"=>value.ValueKind==JsonValueKind.Array&&value.GetArrayLength()>0&&value.GetArrayLength()<=50&&value.EnumerateArray().All(v=>v.ValueKind==JsonValueKind.String&&v.GetString()!.Length<=100&&!v.GetString()!.Any(char.IsControl)),
             _=>false
         };if(!valid)throw new InvalidOperationException("参数格式或范围无效："+name);
     }
@@ -110,6 +114,7 @@ public sealed record GpRule(string Type,bool Required=false,double Min=0,double 
         "enum"=>new{type="string",@enum=Choices},
         "fields"=>new{type="array",items=new{type="string"},maxItems=20},
         "ranges"=>new{type="array",items=new{type="array",items=new{type="number"},minItems=3,maxItems=3},minItems=1,maxItems=100},
+        "values"=>new{type="array",items=new{type="string",maxLength=100},minItems=1,maxItems=50},
         _=>new{type="string",maxLength=500}
     };
 }
@@ -137,6 +142,7 @@ public static class GpCatalog {
         T("spatial_join","空间连接统计","analysis.SpatialJoin","vector","vector,vector",2,2),
         T("select_location","按位置提取","management.SelectLayerByLocation","vector","vector,vector",2,2,rules:Rules(("relationship",Choice(false,"INTERSECT","WITHIN","CONTAINS","BOUNDARY_TOUCHES")))),
         T("select_attribute","按属性提取","analysis.Select","vector","vector",rules:Rules(("field",Field()),("operator",Choice(true,"EQ","NE","GT","GE","LT","LE")),("value",new("text",true)),("value_type",Choice(true,"text","number")))),
+        T("select_values","按已核实的文本类别列表提取（例如商业POI分类）","analysis.Select","vector","vector",rules:Rules(("field",Field()),("values",new("values",true)))),
         T("summary_statistics","分组汇总统计","analysis.Statistics","table","vector|table",rules:Rules(("field",Field()),("statistic",Choice(true,"SUM","MEAN","MIN","MAX","COUNT","STD")),("fields",new("fields")))),
         T("project_raster","栅格投影","management.ProjectRaster","raster","raster",rules:Rules(("wkid",new("integer",true,2000,100000)),("cell_size",Num()),("resampling",Choice(false,"NEAREST","BILINEAR","CUBIC")))),
         T("resample","栅格重采样","management.Resample","raster","raster",rules:Rules(("cell_size",Num()),("resampling",Choice(false,"NEAREST","BILINEAR","CUBIC")))),
@@ -156,7 +162,13 @@ public static class GpCatalog {
         T("extract_values","栅格值采样至点","sa.ExtractValuesToPoints","vector","vector,raster",2,2,shape:"Point"),
         T("raster_float","栅格转浮点","sa.Float","raster","raster"),
         T("idw","反距离权重插值","sa.Idw","raster","vector",rules:Rules(("field",Field()),("cell_size",Num()),("power",Num(false,.01,10))),meters:true),
-        T("raster_add","栅格相加","sa.Plus","raster","raster",2,2),T("raster_subtract","栅格相减","sa.Minus","raster","raster",2,2),T("raster_multiply","栅格相乘","sa.Times","raster","raster",2,2),T("raster_divide","栅格相除","sa.Divide","raster","raster",2,2)
+        T("raster_add","栅格相加","sa.Plus","raster","raster",2,2),T("raster_subtract","栅格相减","sa.Minus","raster","raster",2,2),T("raster_multiply","栅格相乘","sa.Times","raster","raster",2,2),T("raster_divide","栅格相除","sa.Divide","raster","raster",2,2),
+        T("raster_normalize","独立最小最大值标准化至0–1；常量图层返回0；保留NoData","sa.Divide","raster","raster",rules:Rules(("direction",Choice(true,"positive","negative")))),
+        T("raster_scale","栅格乘有限常数（权重）","sa.Times","raster","raster",rules:Rules(("factor",Num(true,-1000000,1000000)))),
+        T("create_grid","按米制输入范围创建规则面网格（最多5万单元）","management.CreateFishnet","vector","vector",rules:Rules(("cell_size",Num(true,50,10000))),meters:true,shape:"Polygon"),
+        T("feature_density","复制面要素，计算实际面积AG_AREA_KM2及计数字段密度AG_DENS","management.CalculateGeometryAttributes","vector","vector",rules:Rules(("field",Field())),meters:true,shape:"Polygon"),
+        T("global_moran","全局Moran I：原生解析报告加固定权重999次双侧置换检验（最多5000单元）","stats.SpatialAutocorrelation","report","vector",rules:Rules(("field",Field()),("neighbors",new("integer",true,1,100)),("seed",new("integer",true,1,2147483647))),meters:true),
+        T("local_moran","局部Moran/LISA，999次置换及FDR校正；K近邻、行标准化","stats.ClustersOutliers","vector","vector",rules:Rules(("field",Field()),("neighbors",new("integer",true,1,100)),("seed",new("integer",true,1,2147483647))),meters:true)
     };
     public static GpTool Get(string id)=>Tools.FirstOrDefault(t=>t.Operation==id)??throw new InvalidOperationException("未注册的分析操作："+id);
     public static string Describe()=>JsonSerializer.Serialize(Tools.Select(t=>new{operation=t.Operation,description=t.Label,inputKinds=t.InputKinds,minInputs=t.MinInputs,maxInputs=t.MaxInputs,output=t.OutputKind,requiresProjectedMeters=t.RequiresMeters,parameters=t.Rules.ToDictionary(p=>p.Key,p=>new{type=p.Value.Type,required=p.Value.Required,choices=p.Value.Choices})}),Json.Options);
@@ -165,6 +177,7 @@ public static class GpCatalog {
         return new{type="object",additionalProperties=false,required=new[]{"summary","steps"},properties=new{summary=new{type="string",maxLength=2000},steps=new{type="array",minItems=1,maxItems=12,items=new{type="object",additionalProperties=false,required=new[]{"id","operation","inputs","parameters"},properties=new{id=new{type="string",pattern="^s[1-9][0-9]?$"},operation=new{type="string",@enum=Tools.Select(t=>t.Operation).ToArray()},inputs=new{type="array",items=new{type="string"},minItems=1,maxItems=8},parameters=new{type="object",additionalProperties=false,properties=parameters}}}}}};
     }
     static string N(double value)=>value.ToString("R",CultureInfo.InvariantCulture);
+    public static string TextSelection(GpStep step)=>"\""+step.Text("field")+"\" IN ("+string.Join(",",step.Parameters["values"].EnumerateArray().Select(v=>"'"+v.GetString()!.Replace("'","''")+"'"))+")";
     public static object[] Arguments(GpStep s,object[] input,string output) {
         string Joined(string key)=>string.Join(";",s.Fields(key));object a=input[0];object b=input.Length>1?input[1]:"#";
         return s.Operation switch {
@@ -196,6 +209,8 @@ public static class GpCatalog {
             "extract_values"=>new object[]{a,b,output,"NONE","VALUE_ONLY"},
             "idw"=>new object[]{a,s.Text("field"),output,s.Number("cell_size"),s.Number("power",2)},
             "raster_add" or "raster_subtract" or "raster_multiply" or "raster_divide"=>new[]{a,b,output},
+            "raster_scale"=>new object[]{a,s.Number("factor"),output},
+            "local_moran"=>new object[]{a,s.Text("field"),output,"K_NEAREST_NEIGHBORS","EUCLIDEAN_DISTANCE","ROW","#","#","APPLY_FDR",999,(int)s.Number("neighbors")},
             _=>throw new InvalidOperationException("此操作需要本地执行器处理："+s.Operation)
         };
     }

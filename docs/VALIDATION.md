@@ -46,12 +46,12 @@ The subsequent real-model continuation exported terrain, road-density and river-
 
 后续真实模型续跑导出了地形、路网密度和沿河道路图，但目视检查发现面填充遮挡，以及连续浮点栅格使用唯一值渲染导致空白。之后由 Codex 通过 MCP 修正显示并逐张检查三张新 PNG。这是模型执行后由 Codex 复核修正，不能算独立全自动视觉闭环成功。现拒绝浮点唯一值样式，应使用连续色带或先重分类。私有运行日志和图件仍不公开。
 
-- Every one of the 39 operations individually accepted on production data.
+- Every one of the 46 operations individually accepted on production data.
 - Compatibility with all Pro versions, client releases, model vendors or proxy setups.
 - Human visual review of every automatically exported map.
 - Long-term trend analysis, significance tests, arbitrary code execution or complete rollback.
 
-- 39 项操作均已在生产数据逐项验收。
+- 46 项操作均已在生产数据逐项验收。
 - 兼容所有 Pro/客户端版本、模型厂商或代理组合。
 - 每张自动导出地图都已人工目视验收。
 - 已实现长期趋势、显著性检验、任意代码执行或完整回滚。

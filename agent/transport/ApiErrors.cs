@@ -12,10 +12,10 @@ internal static class ApiErrors {
    401 when code=="1001"=>"服务端未收到鉴权头，请核对接口及代理是否移除了 Authorization。",
    401=>"鉴权未通过：请在本机设置中更新有效密钥，并核对标准API与Coding套餐的密钥/接口类型；修改模型名或反复重试不能修复无效凭据。",
    403=>"请检查该密钥的模型和接口权限。",
-   429 when code=="1113"=>"账户欠费，请检查智谱账户余额。",
+   429 when code=="1113"=>"当前模型余额不足或没有适用资源包；请核对所选模型与资源包适用范围，其他模型的剩余额度不代表此模型可用。已保留任务，不会自动重试或自动切换模型。",
    429=>"请求受限，请按业务码检查频率、额度或服务繁忙。",
    _=>"请检查接口、模型和请求参数。"
   };
-  return JsonSerializer.Serialize(new{error=$"模型HTTP {status}"+(code.Length>0?$" / 业务码 {code}":"")+(message.Length>0?$"：{message}":"")+"；"+advice+"未自动重试。",httpStatus=status,providerCode=code});
+  return JsonSerializer.Serialize(new{error=$"模型HTTP {status}"+(code.Length>0?$" / 业务码 {code}":"")+(message.Length>0?$"：{message}":"")+"；"+advice+"未自动重试。",httpStatus=status,providerCode=code,errorType=status==429&&code=="1113"?"resource_exhausted":"provider_error"});
  }
 }

@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Diagnostics;
 using System.IO;
 using System.IO.Pipes;
@@ -14,7 +14,7 @@ internal sealed class BridgeServer : IDisposable {
     readonly CancellationTokenSource stop=new();readonly ProDrawing drawing=new();readonly AnalysisBridge analysis=new();
     readonly string pipeName="ProCodex-"+Process.GetCurrentProcess().Id;
     readonly string endpoint=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ArcGISProCodex","endpoints",Process.GetCurrentProcess().Id+".json");
-    public void Start(){Directory.CreateDirectory(Path.GetDirectoryName(endpoint)!);File.WriteAllText(endpoint,JsonSerializer.Serialize(new{processId=Process.GetCurrentProcess().Id,pipe=pipeName,version="0.4.0",buildId=typeof(BridgeServer).Assembly.ManifestModule.ModuleVersionId.ToString("D")}));_=Task.Run(Loop);}
+    public void Start(){Directory.CreateDirectory(Path.GetDirectoryName(endpoint)!);File.WriteAllText(endpoint,JsonSerializer.Serialize(new{processId=Process.GetCurrentProcess().Id,pipe=pipeName,version="0.5.0",buildId=typeof(BridgeServer).Assembly.ManifestModule.ModuleVersionId.ToString("D")}));_=Task.Run(Loop);}
     async Task Loop(){while(!stop.IsCancellationRequested){
         try{using var pipe=new NamedPipeServerStream(pipeName,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly);
             await pipe.WaitForConnectionAsync(stop.Token);
@@ -30,7 +30,7 @@ internal sealed class BridgeServer : IDisposable {
         string action=request.GetProperty("action").GetString()??"";var args=request.GetProperty("arguments");
         if(action=="get_active_map")return await QueuedTask.Run<object>(()=>{
             var view=MapView.Active??throw new InvalidOperationException("请先在ArcGIS Pro中打开二维地图。");
-            return new{processId=Process.GetCurrentProcess().Id,mapUri=view.Map.URI,name=view.Map.Name,wkid=view.Map.SpatialReference.Wkid,mapType=view.Map.MapType.ToString(),layers=view.Map.GetLayersAsFlattenedList().Take(40).Select(l=>new{name=l.Name,uri=l.URI,type=l.GetType().Name,visible=l.IsVisible}).ToArray()};
+            var layers=view.Map.GetLayersAsFlattenedList();return new{processId=Process.GetCurrentProcess().Id,projectPath=ArcGIS.Desktop.Core.Project.Current.URI,mapUri=view.Map.URI,name=view.Map.Name,wkid=view.Map.SpatialReference.Wkid,mapType=view.Map.MapType.ToString(),layerCount=layers.Count,layersTruncated=layers.Count>200,layers=layers.Take(200).Select(l=>new{name=l.Name,uri=l.URI,type=l.GetType().Name,visible=l.IsVisible}).ToArray()};
         });
         if(action=="get_analysis_job")return analysis.Status(args.GetProperty("jobId").GetString()!);
         if(action=="cancel_analysis_job")return analysis.Cancel(args.GetProperty("jobId").GetString()!);

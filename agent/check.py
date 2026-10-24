@@ -197,4 +197,41 @@ class HostChecks(unittest.TestCase):
         self.assertEqual(error.exception.kind,'timeout')
         self.assertEqual(model.process.stdin.getvalue().count('\n'),1)
 
+    def test_expired_context_catalogs_are_compacted_without_losing_receipts(self):
+        import copy
+        messages=[]
+        for n in [1,2]:
+            messages.append(self.call('get_analysis_context',{'processId':123},n))
+            data={'snapshotId':str(n),'inputs':[{'id':'L1','layerUri':'stable','name':'source'}],'operations':[{'description':'long catalog '*100}]}
+            messages.append({'role':'tool','tool_call_id':'call_'+str(n),'content':json.dumps({'content':[{'type':'text','text':json.dumps(data)}]})})
+        original=copy.deepcopy(messages)
+        compact=run.compact_model_messages(messages)
+        older=json.loads(json.loads(compact[1]['content'])['content'][0]['text'])
+        newest=json.loads(json.loads(compact[3]['content'])['content'][0]['text'])
+        self.assertNotIn('operations',older)
+        self.assertEqual(older['inputs'][0]['layerUri'],'stable')
+        self.assertIn('operations',newest)
+        self.assertEqual(messages,original)
+
+    def test_atomic_checkpoint_failure_keeps_previous_complete_file(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=Path(folder)/'conversation.json'
+            run.write_json_atomic(p,{'messages':['original']})
+            with patch.object(Path,'replace',side_effect=OSError('simulated interruption')):
+                with self.assertRaises(OSError):run.write_json_atomic(p,{'messages':['new']})
+            self.assertEqual(json.loads(p.read_text(encoding='utf-8'))['messages'],['original'])
+
+    def test_resource_exhaustion_is_specific_and_does_not_retry(self):
+        report,calls=self.execute([run.ModelRequestError('current model has no applicable package','resource_exhausted')])
+        self.assertEqual(report['stopReason'],'resource_exhausted')
+        self.assertEqual(report['status'],'interrupted')
+        self.assertEqual(len(calls),1)
+
+    def test_resume_rejects_different_map_before_model_request(self):
+        with tempfile.TemporaryDirectory() as folder:
+            p=Path(folder)/'conversation.json';p.write_text(json.dumps({'processId':123,'mapUri':'old','messages':[]}),encoding='utf-8')
+            with patch.object(run,'ROOT',Path(folder)),patch.object(run,'settings',return_value={'model':'synthetic','provider':'test','endpoint':'https://example.invalid'}):
+                with self.assertRaisesRegex(RuntimeError,'地图不匹配'):
+                    run.run(argparse.Namespace(profile=None,pid=123,goal='continue',resume=str(p),max_turns=0,map_uri='different'))
+
 if __name__=='__main__':unittest.main()

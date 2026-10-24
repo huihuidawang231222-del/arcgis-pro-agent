@@ -46,7 +46,7 @@ dotnet --list-sdks
 .\scripts\install-codex-plugin.ps1
 ```
 
-脚本同步本仓库 MCP 文件和图标，注册 `.agents/plugins/marketplace.json` 本地市场，并安装 `arcgis-pro-map@arcgis-local`。它会更新 Codex 的本地插件配置，不上传你的数据。插件版本 0.4.1，Pro 桥接版本 0.4.0，分别管理。
+脚本同步本仓库 MCP 文件和图标，注册 `.agents/plugins/marketplace.json` 本地市场，并安装 `arcgis-pro-map@arcgis-local`。它会更新 Codex 的本地插件配置，不上传你的数据。插件版本 0.4.1，Pro 桥接版本 0.5.0，分别管理。
 
 在 Codex 的插件页面找到 **ArcGIS Pro 自然语言制图**。开启一个新聊天并选用插件；若工具没有加载，刷新插件列表或重启客户端。插件名是 `arcgis-pro-map`。不要同时注册多个指向同一桥接的 MCP 条目，以免混淆。
 
@@ -156,7 +156,7 @@ Agent 内部使用结构化工具参数，但你只需描述目标。检查实�
 pwsh -NoProfile -File .\scripts\test-model-compatibility.ps1
 ```
 
-验证范围见 [VALIDATION.md](VALIDATION.md)。39 项操作不能因一次成图成功就视为逐项生产验收。
+验证范围见 [VALIDATION.md](VALIDATION.md)。46 项操作不能因一次成图成功就视为逐项生产验收。
 
 ## 8. 开发、更新、卸载
 
@@ -167,3 +167,12 @@ pwsh -NoProfile -File .\scripts\test-model-compatibility.ps1
 卸载：在客户端插件页面卸载对应插件；保存并关闭 Pro 后移除本桥接 GUID 目录中的 `.esriAddinX`。本机模型配置和日志按需要自行备份后处理；卸载插件不等于删除原始 GIS 数据。
 
 提交代码前运行 `python scripts/scan-public-source.py`、检查 `git diff --cached`，确保不包含密钥、账户配置、运行日志和业务数据。请提交可复现问题、版本与脱敏错误，勿上传私有工程。
+
+
+## 中断恢复
+
+点击“继续上次任务”，在原 Pro 实例、原地图恢复最新有效记录，无需重写目标。测试模型不会清空任务记录，切换保存的模型配置后也可以继续。找不到匹配记录会明确拒绝，不会悄悄新建任务；Pro 重启后尚不支持自动匹配。
+
+启动及工具执行前保存检查点，JSON 通过临时文件替换。恢复后先核实地图和已有成果，避免重复分析。请求移除重复的历史操作目录，原始回执完整保存在本机。Token 用量不等于费用；本地决策轮次仍默认不限。
+
+GLM-5.3-Flash 和 FlashX 均适配开启思考的要求。标准 API 按 Token 计费，赠送资源包可能限定模型。资源不足时保留任务，不自动重试或切换模型。离线检查不能代替真实续跑和地图验收。

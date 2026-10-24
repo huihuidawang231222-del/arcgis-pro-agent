@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -42,7 +42,7 @@ internal sealed class AnalysisBridge : IDisposable {
         var member=engine.Member(id);var meta=engine.Inputs.Single(x=>x.Id==id);
         if(member is FeatureLayer f){using var fc=f.GetFeatureClass();using var def=fc.GetDefinition();return new{input=meta,sourceFeatureCount=fc.GetCount(),selectedCount=f.SelectionCount,countMeaning="源要素类总数；定义查询与选择集影响实际处理输入",fields=def.GetFields().Select(x=>new{name=x.Name,type=x.FieldType.ToString()}).ToArray()};}
         if(member is RasterLayer r){using var raster=r.GetRaster();return new{input=meta,width=raster.GetWidth(),height=raster.GetHeight(),pixelType=raster.GetPixelType().ToString(),extent=new{xmin=raster.GetExtent().XMin,ymin=raster.GetExtent().YMin,xmax=raster.GetExtent().XMax,ymax=raster.GetExtent().YMax},note="未读取像元值或推断高程单位。"};}
-        if(member is StandaloneTable table){using var data=table.GetTable();return new{input=meta,sourceRowCount=data.GetCount()};}
+        if(member is StandaloneTable table){using var data=table.GetTable();using var definition=data.GetDefinition();var names=definition.GetFields().Where(f=>f.FieldType.ToString() is not ("Blob" or "Geometry" or "Raster" or "XML")).Take(20).Select(f=>f.Name).ToArray();var rows=new List<Dictionary<string,object?>>();using var cursor=data.Search(null,false);while(rows.Count<100&&cursor.MoveNext()){using var row=cursor.Current;rows.Add(names.ToDictionary(name=>name,name=>row[name] is DBNull?null:row[name] is string text?(object)text.Substring(0,Math.Min(120,text.Length)):row[name]));}long count=data.GetCount();return new{input=meta,sourceRowCount=count,sampleRows=rows,returnedFields=names,rowsTruncated=count>rows.Count,fieldLimit=20,rowLimit=100,note="仅返回受限表记录，不把样本当作完整统计。"};}
         throw new InvalidOperationException("不支持检查此图层。");
     });
         var rasterLayer=await QueuedTask.Run(()=>engine.Member(id) as RasterLayer);if(rasterLayer==null)return details;

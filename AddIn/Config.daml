@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <ArcGIS defaultAssembly="ProCodex.dll" defaultNamespace="ProCodex" xmlns="http://schemas.esri.com/DADF/Registry">
- <AddInInfo id="{3C50E896-CB94-4876-B70B-20E6463018B2}" version="0.4.0" desktopVersion="3.0.36056">
+ <AddInInfo id="{3C50E896-CB94-4876-B70B-20E6463018B2}" version="0.5.0" desktopVersion="3.0.36056">
   <Name>ArcGIS Pro Codex Bridge</Name><Description>从Codex聊天通过本机MCP操作Pro地图</Description><Image>Icon.png</Image><Author>Local development</Author><Company>Local</Company><Date>2026-10-24</Date><Subject>Analysis</Subject>
  </AddInInfo>
  <modules><insertModule id="ProCodex_Module" className="CodexModule" autoLoad="true" caption="ArcGIS Pro Codex Bridge">
