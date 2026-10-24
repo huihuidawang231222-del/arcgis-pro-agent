@@ -26,6 +26,10 @@ Timeout follow-up: 19 host checks pass, covering waiting heartbeats without requ
 
 超时补充：19项宿主检查通过，覆盖等待提示不重复提交请求、结构化超时分类及传输进程无响应时有界退出；传输器和界面编译通过。新配置默认300秒且可调整，增加超时本身不能证明服务端或网络慢响应已被修复。
 
+The previously timed-out request was replayed against the configured provider with a 300-second timeout and returned a model response in approximately 117 seconds. Returned tool calls were not executed. This confirms one successful request beyond the former 90-second deadline, not a guaranteed response time or completion of the GIS workflow.
+
+使用300秒超时重放此前失败的同一模型请求，约117秒后收到响应，未执行其返回的工具调用。这证实了一次超过原90秒期限的成功响应，不代表所有请求时延有保证，也不代表GIS业务流程已完成。
+
 Unlimited-turn update: the API agent now defaults to `--max-turns 0` (no local decision cap). All 16 host checks pass, including 65 tool decisions followed by a deliberate agent finish on round 66, without triggering a turn limit. Explicit positive caps remain optional and are tested separately. This synthetic check does not imply unlimited provider quota or production reliability.
 
 不限轮次更新：API Agent 默认 `--max-turns 0`，取消本地决策轮次上限。16 项宿主检查全部通过，包括连续 65 轮工具决策后于第 66 轮主动结束，未触发轮次上限。手动正整数上限仍可选并独立测试。这是合成验证，不代表厂商额度无限或生产可靠性已达标。
