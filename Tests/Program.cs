@@ -1,4 +1,4 @@
-﻿using ProCodex;
+using ProCodex;
 using System.Text.Json;
 if(args.Length>0&&args[0]=="--analysis-schema"){Console.WriteLine(JsonSerializer.Serialize(GpCatalog.Schema()));return 0;}
 // Synthetic subprocess exercises the real stdio transport without model/network use.
@@ -19,6 +19,10 @@ if(args.Length>0&&args[0]=="app-server"){
 }
 var checks=new List<object>();int failures=0;
 void Check(string name,Action action){try{action();checks.Add(new{name,passed=true});}catch(Exception ex){failures++;checks.Add(new{name,passed=false,error=ex.Message});}}
+Check("turn-limit-structured-not-crash",()=>{var r=GisAgentDesktop.RunOutcome.Parse("{\"status\":\"partial\",\"stopReason\":\"turn_limit\",\"maxTurns\":60}");if(!r.IsTurnLimit||!r.LimitNotice.Contains("60")||!r.LimitNotice.Contains("不是API"))throw new Exception("Missing limit guidance");});
+Check("turn-limit-legacy-report",()=>{var r=GisAgentDesktop.RunOutcome.Parse("{\"status\":\"partial\",\"message\":\"达到决策轮次上限；保留日志和成果，可继续对话。\"}");if(!r.IsTurnLimit)throw new Exception("Old limit report misclassified");});
+Check("request-error-is-not-turn-limit",()=>{var r=GisAgentDesktop.RunOutcome.Parse("{\"status\":\"interrupted\",\"message\":\"HTTP 429\"}");if(r.IsTurnLimit)throw new Exception("API failure mislabeled as task limit");});
+Check("partial-output-is-not-turn-limit",()=>{var r=GisAgentDesktop.RunOutcome.Parse("{\"status\":\"partial\",\"message\":\"导出失败\"}");if(r.IsTurnLimit)throw new Exception("Partial task mislabeled as task limit");});
 void Reject(string json){try{Reply.Parse(json);}catch{ return;}throw new Exception("Invalid plan was accepted");}
 Check("valid-buffer",()=>{var r=Reply.Parse("{\"message\":\"pending\",\"buffer\":{\"layerId\":\"L1\",\"distanceMeters\":500}}");if(r.Plan?.DistanceMeters!=500)throw new Exception();});
 Check("clarification",()=>{if(Reply.Parse("{\"message\":\"which layer?\",\"buffer\":null}").Plan!=null)throw new Exception();});

@@ -22,6 +22,10 @@ Public-export check on 2026-10-24: bridge/transport build succeeded with zero wa
 
 ## Not established / 尚不能声称
 
+Turn-limit follow-up: 15 Python host checks and 22 .NET checks passed, including a complete synthetic 60-decision run that pauses with `stopReason=turn_limit` and exit code 0. UI classification covers structured and legacy limit reports, API errors and ordinary partial results. No paid model requests were required for these checks.
+
+轮次上限补充：15 项 Python 宿主检查及 22 项 .NET 检查通过，包括完整模拟 60 轮后以 `stopReason=turn_limit` 和退出码 0 正常暂停。界面分类覆盖新版/旧版上限日志、API 错误和普通部分完成结果。这些检查未请求付费模型。
+
 Reliability follow-up (2026-10-24): a real multi-stage task exhausted 60 model decisions after 44 job-status calls. The API host now polls jobs without additional model decisions, refreshes display-edit snapshots by stable layer URI, and preserves conversation state for continuation. Fourteen host regression checks cover long waits, timeout/no-resubmission, wrong processes, interrupted messages, URI remapping, statistics aliases, continuous-raster style validation and truthful completion. The desktop also checks the Pro bridge module build ID and requests a saved restart when it is stale. These targeted checks do not establish general production reliability.
 
 可靠性补充（2026-10-24）：真实多阶段任务曾因 44 次状态查询耗尽 60 轮模型决策。API 宿主现改为自行轮询，展示操作按稳定图层 URI 刷新快照，并保留接续对话。14 项宿主检查覆盖长等待、超时不重发、错误进程、中断消息、URI 重绑定、统计参数、连续栅格样式校验及真实完成状态；界面增加 Pro 桥接构建 ID 校验，旧进程需保存后重启。定向检查通过不等于已达到通用生产可靠性。

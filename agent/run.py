@@ -167,7 +167,7 @@ def run(args):
     output = ROOT/"outputs/agent"/(time.strftime("%Y%m%d-%H%M%S")+"-"+uuid.uuid4().hex[:6])
     output.mkdir(parents=True)
     print('GIS_AGENT_RUN '+str(output),flush=True)
-    report = dict(model=config["model"],provider=config["provider"],endpoint=config["endpoint"],modelInvoked=False,status="running",goal=args.goal,events=[],visualReview="pending_human_review")
+    report = dict(model=config["model"],provider=config["provider"],endpoint=config["endpoint"],modelInvoked=False,status="running",goal=args.goal,events=[],visualReview="pending_human_review",stopReason="",maxTurns=args.max_turns,modelTurns=0)
     system = SYSTEM+"\n后台任务由当前API宿主自动轮询等待，不需要反复让模型查询。仅允许操作用户指定的Pro进程："+str(args.pid)
     messages = [dict(role="system",content=system),dict(role="user",content=args.goal)]
     saved = {}
@@ -205,8 +205,9 @@ def run(args):
         (output/"conversation.json").write_text(json.dumps(dict(processId=args.pid,mapUri=current_map,messages=messages,pendingJobs=sorted(pending),deliveries=exports),ensure_ascii=False,indent=2),encoding="utf-8")
     try:
         for turn in range(args.max_turns):
-            print("模型决策轮次 "+str(turn+1),flush=True)
+            print("模型决策轮次 "+str(turn+1)+"/"+str(args.max_turns),flush=True)
             message,usage = model.ask(messages,tools)
+            report["modelTurns"] = turn+1
             report["modelInvoked"] = True
             messages.append(message)
             report["events"].append(dict(kind="model",turn=turn+1,message=message,usage=usage))
@@ -292,17 +293,17 @@ def run(args):
             if finished:
                 break
         else:
-            report.update(status="partial",message="达到决策轮次上限；保留日志和成果，可继续对话。")
+            report.update(status="partial",stopReason="turn_limit",message=f"达到本轮 {args.max_turns} 轮决策上限，任务已暂停；已有成果和记录已保留，输入“继续”可接续。这是本地Agent任务保护限制，不是API账户调用次数限制。")
     except (Exception,KeyboardInterrupt) as exc:
-        report.update(status="interrupted",message=str(exc),pendingJobs=sorted(pending))
+        report.update(status="interrupted",stopReason="request_error",message=str(exc),pendingJobs=sorted(pending))
     finally:
         # Complete interrupted protocol turns without pretending their side effects failed.
         reconcile_interrupted_messages(messages, pending)
         save()
         mcp.close()
         model.close()
-    print(json.dumps(dict(status=report["status"],message=report.get("message"),report=str(output/"run.json")),ensure_ascii=False),flush=True)
-    return 0 if report["status"] in ("completed","needs_input") else 1
+    print(json.dumps(dict(status=report["status"],stopReason=report["stopReason"],maxTurns=report["maxTurns"],message=report.get("message"),report=str(output/"run.json")),ensure_ascii=False),flush=True)
+    return 0 if report["status"] in ("completed","needs_input","partial") else 1
 
 if __name__ == "__main__":
     sys.stdout.reconfigure(encoding="utf-8")

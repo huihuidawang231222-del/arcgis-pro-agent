@@ -29,8 +29,9 @@ class HostChecks(unittest.TestCase):
                 resume=str(Path(folder)/'prior.json')
                 Path(resume).write_text(json.dumps(resume_state),encoding='utf-8')
             with patch.object(run,'ROOT',Path(folder)),patch.object(run,'settings',return_value={'model':'synthetic','provider':'test','endpoint':'https://example.invalid'}),patch.object(run,'Model',Model),patch.object(run,'Mcp',Mcp),contextlib.redirect_stdout(io.StringIO()):
-                run.run(argparse.Namespace(profile=None,pid=123,goal='测试目标',resume=resume,max_turns=max_turns))
+                exit_code=run.run(argparse.Namespace(profile=None,pid=123,goal='测试目标',resume=resume,max_turns=max_turns))
             result=json.loads(next(Path(folder).rglob('run.json')).read_text(encoding='utf-8'))
+            result['_exitCode']=exit_code
             return result,Mcp.calls
     def call(self,name,args,n=1):
         return {'role':'assistant','content':None,'tool_calls':[{'id':'call_'+str(n),'type':'function','function':{'name':name,'arguments':json.dumps(args)}}]}
@@ -133,5 +134,17 @@ class HostChecks(unittest.TestCase):
             with self.assertRaises(ValueError):run.validate_raster_style('classes',{'metadata':{'pixelType':pixel}})
         run.validate_raster_style('classes',{'metadata':{'pixelType':'SHORT'}})
         run.validate_raster_style('elevation',{'metadata':{'pixelType':'FLOAT'}})
+
+    def test_sixty_decisions_pause_normally_with_explicit_reason(self):
+        def rpc(method,arguments):
+            return {'content':[{'type':'text','text':json.dumps({'mapUri':'fixture-map'})}]}
+        responses=[self.call('get_active_map',{'processId':123},n) for n in range(60)]
+        report,_=self.execute(responses,rpc_handler=rpc,max_turns=60)
+        self.assertEqual(report['status'],'partial')
+        self.assertEqual(report['stopReason'],'turn_limit')
+        self.assertEqual(report['modelTurns'],60)
+        self.assertEqual(report['maxTurns'],60)
+        self.assertEqual(report['_exitCode'],0)
+        self.assertIn('不是API账户',report['message'])
 
 if __name__=='__main__':unittest.main()
