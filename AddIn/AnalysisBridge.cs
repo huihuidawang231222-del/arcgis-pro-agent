@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -73,7 +73,12 @@ internal sealed class AnalysisBridge : IDisposable {
     public async Task<object> Style(string value,string id,string style,double opacity){Idle();Snapshot(value);if(!double.IsFinite(opacity)||opacity<0||opacity>100)throw new InvalidOperationException("不透明度须0–100。");if(style is not ("elevation" or "grayscale" or "classes"))throw new InvalidOperationException("未知符号方案。");
         await QueuedTask.Run(async()=>{if(engine.Member(id) is not RasterLayer layer)throw new InvalidOperationException("当前符号工具只支持栅格。");
             var ramp=style=="grayscale"?ColorFactory.Instance.ConstructColorRamp(ColorRampAlgorithm.LinearContinuous,ColorFactory.Instance.CreateRGBColor(0,0,0),ColorFactory.Instance.CreateRGBColor(255,255,255)):ColorFactory.Instance.ConstructColorRamp(ColorRampAlgorithm.LinearContinuous,ColorFactory.Instance.CreateRGBColor(80,140,65),ColorFactory.Instance.CreateRGBColor(245,235,200));
-            if(style=="classes")layer.SetColorizer(await layer.CreateColorizerAsync(new UniqueValueColorizerDefinition("Value",ramp)));else layer.SetColorizer(await layer.CreateColorizerAsync(new StretchColorizerDefinition(0,RasterStretchType.MinimumMaximum,1,ramp)));
+            if(style=="classes"){
+                using var raster=layer.GetRaster();string pixel=raster.GetPixelType().ToString().ToUpperInvariant();
+                if(pixel.Contains("FLOAT")||pixel.Contains("DOUBLE"))throw new InvalidOperationException("连续浮点栅格不能使用唯一值类别样式，请使用连续色带或先重分类为整数类别。");
+            }
+            var colorizer=style=="classes"?await layer.CreateColorizerAsync(new UniqueValueColorizerDefinition("Value",ramp)):await layer.CreateColorizerAsync(new StretchColorizerDefinition(0,RasterStretchType.MinimumMaximum,1,ramp));
+            if(colorizer==null)throw new InvalidOperationException("栅格渲染器创建失败，原样式保留。");layer.SetColorizer(colorizer);
             layer.SetTransparency(100-opacity);layer.SetVisibility(true);MapView.Active?.ZoomTo(layer,false,TimeSpan.Zero,true);
         });if(!await FrameworkApplication.Current.Dispatcher.InvokeAsync(()=>Project.Current.SaveAsync()).Task.Unwrap())throw new InvalidOperationException("处理结果已生成，但工程未保存。");snapshot="";return new{status="styled",style,opacity,layerId=id,saved=true,note="已修改地图符号；像元值未修改。需重新读取上下文。"};
     }

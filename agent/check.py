@@ -128,4 +128,10 @@ class HostChecks(unittest.TestCase):
         self.assertIn('结果未知',replies[0]['content'])
         self.assertIn('pending-job',replies[0]['content'])
 
+    def test_continuous_raster_cannot_get_unique_value_style(self):
+        for pixel in ['FLOAT','DOUBLE','']:
+            with self.assertRaises(ValueError):run.validate_raster_style('classes',{'metadata':{'pixelType':pixel}})
+        run.validate_raster_style('classes',{'metadata':{'pixelType':'SHORT'}})
+        run.validate_raster_style('elevation',{'metadata':{'pixelType':'FLOAT'}})
+
 if __name__=='__main__':unittest.main()

@@ -114,7 +114,7 @@ TOOLS.extend([
  tool("start_analysis","执行用户目标所需的受控Pro分析，可单步迭代或最多12步串联。步骤id必须为s1、s2等，不能使用语义名称；inputs引用当前L编号或前序s编号。无需用户再次在Pro中确认。先读取上下文；缺少影响结果的重要参数时追问。返回后台jobId，必须查询get_analysis_job直到terminal，失败不盲目重复。只生成独立输出，不覆写源数据。",dict(TARGET,snapshotId=SNAPSHOT,requestId={"type":"string","format":"uuid","description":"调用者生成UUID；重试同一次提交必须复用该ID。"},plan=PLAN),["processId","mapUri","snapshotId","requestId","plan"]),
  tool("get_analysis_job","查询分析任务状态、进度、错误及真实输出。不要求地图仍处于原视图；仅completed代表处理执行完成，仍需检查结果。轮询间隔建议2至5秒，避免密集调用。",{"processId":PID,"jobId":{"type":"string"}},["processId","jobId"],True),
  tool("cancel_analysis_job","取消后台分析。已产生的中间文件和日志保留，不声称全部回滚。",{"processId":PID,"jobId":{"type":"string"}},["processId","jobId"]),
- tool("style_raster","为已有栅格应用高程连续色带、灰度或离散类别显示并定位保存。只改地图符号，不改像元；不是完整布局出图或视觉质量验收。",dict(TARGET,snapshotId=SNAPSHOT,layerId=LAYER,style={"type":"string","enum":["elevation","grayscale","classes"]},opacity={"type":"number","minimum":0,"maximum":100,"description":"不透明度，默认100；阴影叠加可设较低值。"}),["processId","mapUri","snapshotId","layerId","style"]),
+ tool("style_raster","为已有栅格应用连续色带、灰度或整数离散类别显示；连续浮点栅格不支持唯一值类别样式，须使用连续色带或先重分类并定位保存。只改地图符号，不改像元；不是完整布局出图或视觉质量验收。",dict(TARGET,snapshotId=SNAPSHOT,layerId=LAYER,style={"type":"string","enum":["elevation","grayscale","classes"]},opacity={"type":"number","minimum":0,"maximum":100,"description":"不透明度，默认100；阴影叠加可设较低值。"}),["processId","mapUri","snapshotId","layerId","style"]),
 ])
 
 def dispatch(method, params):

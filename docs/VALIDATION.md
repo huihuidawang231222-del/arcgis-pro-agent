@@ -22,9 +22,13 @@ Public-export check on 2026-10-24: bridge/transport build succeeded with zero wa
 
 ## Not established / 尚不能声称
 
-Reliability follow-up (2026-10-24): a real multi-stage task exhausted 60 model decisions after 44 job-status calls. The API host now polls jobs without additional model decisions, refreshes display-edit snapshots by stable layer URI, and preserves conversation state for continuation. Thirteen host regression checks cover long waits, timeout/no-resubmission, wrong processes, interrupted messages, URI remapping, statistics aliases and truthful completion. The desktop also checks the Pro bridge module build ID and requests a saved restart when it is stale. These targeted checks do not establish general production reliability.
+Reliability follow-up (2026-10-24): a real multi-stage task exhausted 60 model decisions after 44 job-status calls. The API host now polls jobs without additional model decisions, refreshes display-edit snapshots by stable layer URI, and preserves conversation state for continuation. Fourteen host regression checks cover long waits, timeout/no-resubmission, wrong processes, interrupted messages, URI remapping, statistics aliases, continuous-raster style validation and truthful completion. The desktop also checks the Pro bridge module build ID and requests a saved restart when it is stale. These targeted checks do not establish general production reliability.
 
-可靠性补充（2026-10-24）：真实多阶段任务曾因 44 次状态查询耗尽 60 轮模型决策。API 宿主现改为自行轮询，展示操作按稳定图层 URI 刷新快照，并保留接续对话。13 项宿主检查覆盖长等待、超时不重发、错误进程、中断消息、URI 重绑定、统计参数及真实完成状态；界面增加 Pro 桥接构建 ID 校验，旧进程需保存后重启。定向检查通过不等于已达到通用生产可靠性。
+可靠性补充（2026-10-24）：真实多阶段任务曾因 44 次状态查询耗尽 60 轮模型决策。API 宿主现改为自行轮询，展示操作按稳定图层 URI 刷新快照，并保留接续对话。14 项宿主检查覆盖长等待、超时不重发、错误进程、中断消息、URI 重绑定、统计参数、连续栅格样式校验及真实完成状态；界面增加 Pro 桥接构建 ID 校验，旧进程需保存后重启。定向检查通过不等于已达到通用生产可靠性。
+
+The subsequent real-model continuation exported terrain, road-density and river-adjacent-road maps. Image review found opaque polygon occlusion and a blank continuous raster rendered with unique values. Codex then corrected display settings through MCP and opened the three revised PNGs. This was model execution followed by Codex review/correction, not an independently successful autonomous visual-quality loop. Floating-point unique-value styling is now rejected; use a continuous ramp or reclassify first. Private run logs and map files remain excluded.
+
+后续真实模型续跑导出了地形、路网密度和沿河道路图，但目视检查发现面填充遮挡，以及连续浮点栅格使用唯一值渲染导致空白。之后由 Codex 通过 MCP 修正显示并逐张检查三张新 PNG。这是模型执行后由 Codex 复核修正，不能算独立全自动视觉闭环成功。现拒绝浮点唯一值样式，应使用连续色带或先重分类。私有运行日志和图件仍不公开。
 
 - Every one of the 39 operations individually accepted on production data.
 - Compatibility with all Pro versions, client releases, model vendors or proxy setups.
