@@ -37,7 +37,8 @@ internal static class MapDelivery {
             var legendDef=(CIMLegend)legend.GetDefinition();legendDef.AutoVisibility=true;legendDef.AutoFonts=false;legendDef.Title="图例";legendDef.ShowTitle=true;legendDef.TitleSymbol=LegendText(12);
             // Pro 3.0 populates automatic items incrementally. Snapshotting immediately can
             // retain just the first layer; explicitly bind one native item per visible leaf.
-            var template=legendDef.Items.FirstOrDefault()??legendDef.DefaultLegendItem??new CIMHorizontalLegendItem();
+            // A newly created legend can also have null Items in imported projects.
+            var template=legendDef.Items?.FirstOrDefault()??legendDef.DefaultLegendItem??new CIMHorizontalLegendItem();
             legendDef.Items=map.GetLayersAsFlattenedList().Where(l=>l.IsVisible&&l is not GroupLayer).Select(l=>{var item=(CIMLegendItem)CIMObject.Clone(template);item.Layer=l.URI;item.Name=l.Name;if(l is RasterLayer){item.ShowLayerName=true;item.ShowHeading=false;}return item;}).ToArray();
             foreach(var item in legendDef.Items){item.LayerNameSymbol=LegendText(8);item.HeadingSymbol=LegendText(8);item.LabelSymbol=LegendText(8);item.DescriptionSymbol=LegendText(8);}legend.SetDefinition(legendDef);
             var arrow=ElementFactory.Instance.CreateMapSurroundElement(layout,MapPointBuilderEx.CreateMapPoint(10.05,6.6),new NorthArrowInfo{MapFrameName=frame.Name,NorthArrowStyleItem=arrows[0]},"North arrow");arrow.SetHeight(0.65);
