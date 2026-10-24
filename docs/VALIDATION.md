@@ -22,6 +22,10 @@ Public-export check on 2026-10-24: bridge/transport build succeeded with zero wa
 
 ## Not established / 尚不能声称
 
+Unlimited-turn update: the API agent now defaults to `--max-turns 0` (no local decision cap). All 16 host checks pass, including 65 tool decisions followed by a deliberate agent finish on round 66, without triggering a turn limit. Explicit positive caps remain optional and are tested separately. This synthetic check does not imply unlimited provider quota or production reliability.
+
+不限轮次更新：API Agent 默认 `--max-turns 0`，取消本地决策轮次上限。16 项宿主检查全部通过，包括连续 65 轮工具决策后于第 66 轮主动结束，未触发轮次上限。手动正整数上限仍可选并独立测试。这是合成验证，不代表厂商额度无限或生产可靠性已达标。
+
 Turn-limit follow-up: 15 Python host checks and 22 .NET checks passed, including a complete synthetic 60-decision run that pauses with `stopReason=turn_limit` and exit code 0. UI classification covers structured and legacy limit reports, API errors and ordinary partial results. No paid model requests were required for these checks.
 
 轮次上限补充：15 项 Python 宿主检查及 22 项 .NET 检查通过，包括完整模拟 60 轮后以 `stopReason=turn_limit` 和退出码 0 正常暂停。界面分类覆盖新版/旧版上限日志、API 错误和普通部分完成结果。这些检查未请求付费模型。

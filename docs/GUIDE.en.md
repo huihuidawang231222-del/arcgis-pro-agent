@@ -102,7 +102,7 @@ System-proxy use can be toggled locally. Direct connections worked in the develo
 
 In API mode, the host polls background jobs without spending extra model decisions. Subsequent messages continue available history for the same Pro process and map; changing the map/process starts fresh context. Close the old Agent window and reopen after updates. If the bridge build check reports a mismatch, save the project and restart Pro.
 
-Each task defaults to 60 model decisions. This is a local agent safeguard, not a vendor account quota of 60 requests. Reaching it pauses normally with an orange continuation notice and preserves outputs/history. Send “continue” when the continuation conditions above hold, or use CLI `--resume`. Progress shows the current round and limit. Authentication, quota and network failures remain distinct errors.
+Tasks now default to unlimited model decisions (`--max-turns 0`) and do not automatically pause at round 60. Progress shows the current round and “unlimited.” Execution ends on completion, a clarification request, a request failure or a user stop. Only an explicit positive CLI value, such as `--max-turns 60`, enables a decision limit, which still pauses normally and preserves history. Provider authentication, quota, network and context-length limits remain separate constraints.
 
 ## 6. Natural-language mapping demonstrations
 

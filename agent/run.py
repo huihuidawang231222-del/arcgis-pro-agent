@@ -1,5 +1,6 @@
 """External natural-language agent. No terrain recipe: the model chooses MCP tools."""
 import argparse
+import itertools
 import json
 import os
 from pathlib import Path
@@ -204,8 +205,9 @@ def run(args):
         (output/"run.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
         (output/"conversation.json").write_text(json.dumps(dict(processId=args.pid,mapUri=current_map,messages=messages,pendingJobs=sorted(pending),deliveries=exports),ensure_ascii=False,indent=2),encoding="utf-8")
     try:
-        for turn in range(args.max_turns):
-            print("模型决策轮次 "+str(turn+1)+"/"+str(args.max_turns),flush=True)
+        decisions = range(args.max_turns) if args.max_turns else itertools.count()
+        for turn in decisions:
+            print("模型决策轮次 "+str(turn+1)+"/"+(str(args.max_turns) if args.max_turns else "不限"),flush=True)
             message,usage = model.ask(messages,tools)
             report["modelTurns"] = turn+1
             report["modelInvoked"] = True
@@ -311,11 +313,11 @@ if __name__ == "__main__":
     parser.add_argument("goal",nargs="?")
     parser.add_argument("--pid",type=int,required=True,help="目标Pro进程ID，避免误操作其他工程")
     parser.add_argument("--profile",help="已保存的Chat兼容厂商配置ID；默认当前配置")
-    parser.add_argument("--max-turns",type=int,default=60)
+    parser.add_argument("--max-turns",type=int,default=0,help="默认0表示不限决策轮次；仅在显式指定正整数时限制本轮任务。")
     parser.add_argument("--resume",help="上一轮conversation.json，继续澄清对话")
     args = parser.parse_args()
     if not args.goal:
         args.goal = input("你希望制作什么地图？\n> ").strip()
-    if not args.goal or not 1 <= args.max_turns <= 120:
-        parser.error("目标不能为空，轮次须1–120。")
+    if not args.goal or args.max_turns < 0:
+        parser.error("目标不能为空；max-turns须为0（不限）或正整数。")
     sys.exit(run(args))

@@ -147,4 +147,16 @@ class HostChecks(unittest.TestCase):
         self.assertEqual(report['_exitCode'],0)
         self.assertIn('不是API账户',report['message'])
 
+    def test_unlimited_task_passes_sixty_and_stops_on_agent_finish(self):
+        def rpc(method,arguments):
+            return {'content':[{'type':'text','text':json.dumps({'mapUri':'fixture-map'})}]}
+        responses=[self.call('get_active_map',{'processId':123},n) for n in range(65)]
+        responses.append(self.call('finish_task',{'status':'needs_input','message':'第66轮主动结束，等待用户补充'},66))
+        report,_=self.execute(responses,rpc_handler=rpc,max_turns=0)
+        self.assertEqual(report['status'],'needs_input')
+        self.assertEqual(report['stopReason'],'')
+        self.assertEqual(report['modelTurns'],66)
+        self.assertEqual(report['maxTurns'],0)
+        self.assertEqual(report['_exitCode'],0)
+
 if __name__=='__main__':unittest.main()
