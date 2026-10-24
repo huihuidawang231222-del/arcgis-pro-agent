@@ -20,6 +20,7 @@ SYSTEM = """你是ArcGIS自然语言自主制图Agent。用户描述目标，你
 每次任务完成或符号/顺序/显隐修改后必须重新get_analysis_context，用实际layerUri匹配新输入ID，旧snapshot不得复用。真正检查结果统计或数量再继续。不要为了证明工作而重复已有合适成果；用户明确要求从源数据新做时使用源数据。
 成图任务要完成合适的符号、图层命名/单位、上下顺序、显隐、必要标注，避免研究区面和历史输出遮挡成果。只隐藏无关层，不删除源数据。export_map生成布局PNG/PDF、图例、比例尺、指北针和来源说明；使用真实结果图层URI确定范围。来源说明按实际数据来源填写；合成测试必须明确标注，不把测试图当作真实地区地图。
 你目前不能观看图片。不要声称已经目视检查；你可以核验统计/图层清单，视觉质量必须标明待人工检查。结果以真实工具回执为准；有任务未结束或导出失败不得声称成图成功。
+只检查实际参与分析或新生成的图层；不要按猜测的类别逐个提取来探查字段值，也不要在每次刷新上下文后重复检查所有历史中间图层。已完成的步骤应复用。summary_statistics分组参数为fields数组。
 完成或需要澄清时调用finish_task；status为completed/needs_input/partial，说明真实成果及限制。export_map未成功时不得把制图目标标completed。
 """
 
@@ -98,19 +99,79 @@ class Mcp:
 
 FINISH = {"type":"function","function":{"name":"finish_task","description":"结束本轮任务，真实报告完成、待澄清或部分完成。","parameters":{"type":"object","additionalProperties":False,"required":["status","message"],"properties":{"status":{"type":"string","enum":["completed","needs_input","partial"]},"message":{"type":"string"}}}}}
 
+def canonicalize_plan(plan):
+    """Normalize only the unambiguous statistics case-field alias; never drop keys."""
+    for step in plan.get("steps", []):
+        if step.get("operation") != "summary_statistics":
+            continue
+        params = step.get("parameters", {})
+        if "group_field" in params:
+            if "fields" in params:
+                raise ValueError("summary_statistics分组字段重复：请仅使用fields数组。")
+            field = params["group_field"]
+            if not isinstance(field, str) or not field:
+                raise ValueError("group_field须为非空字段名；标准参数为fields数组。")
+            params["fields"] = [params.pop("group_field")]
+
+
+def wait_for_analysis(mcp, arguments, progress, timeout=960):
+    """Polling is host work, not a new model decision or a new job submission."""
+    deadline = time.monotonic() + timeout
+    while True:
+        result = mcp.rpc("tools/call", dict(name="get_analysis_job", arguments=arguments))
+        if result.get("isError"):
+            return result
+        job = json.loads(result["content"][0]["text"])
+        if job.get("jobId") != arguments.get("jobId"):
+            raise RuntimeError("分析任务回执ID不匹配，已停止等待；请核实任务状态。")
+        progress(job)
+        if job.get("terminal"):
+            return result
+        if time.monotonic() >= deadline:
+            raise RuntimeError("等待分析任务超时；任务可能仍在执行，不得重复提交。")
+        time.sleep(2)
+
+
+def refresh_presentation_target(mcp, arguments, source_context):
+    """Rebind a display-only edit by stable layer URI, never by an old numeric ID."""
+    original = next((item for item in source_context["inputs"] if item["id"] == arguments["layerId"]), None)
+    if original is None:
+        raise ValueError("原始上下文中没有目标图层，请重新读取上下文。")
+    result = mcp.rpc("tools/call", dict(name="get_analysis_context", arguments={key:arguments[key] for key in ("processId","mapUri")}))
+    if result.get("isError"):
+        raise ValueError("刷新展示操作上下文失败，请重新检查地图；未执行修改。")
+    context = json.loads(result["content"][0]["text"])
+    matches = [item for item in context["inputs"] if item["layerUri"] == original["layerUri"]]
+    if len(matches) != 1:
+        raise ValueError("目标图层已移除或不唯一；未执行修改。")
+    return dict(arguments, layerId=matches[0]["id"], snapshotId=context["snapshotId"]), context
+
+
+def reconcile_interrupted_messages(messages, pending):
+    replied = {m.get("tool_call_id") for m in messages if m["role"]=="tool"}
+    missing = [c for m in messages if m["role"]=="assistant" for c in m.get("tool_calls",[]) if c["id"] not in replied]
+    for c in missing:
+        messages.append(dict(role="tool",tool_call_id=c["id"],content="宿主中断，执行结果未知。先观察地图并查询待确认任务，不得盲目重复提交。待确认任务："+str(sorted(pending))))
+
+
 def run(args):
     config = settings(args.profile)
     output = ROOT/"outputs/agent"/(time.strftime("%Y%m%d-%H%M%S")+"-"+uuid.uuid4().hex[:6])
     output.mkdir(parents=True)
     print('GIS_AGENT_RUN '+str(output),flush=True)
     report = dict(model=config["model"],provider=config["provider"],endpoint=config["endpoint"],modelInvoked=False,status="running",goal=args.goal,events=[],visualReview="pending_human_review")
-    messages = [dict(role="system",content=SYSTEM+"\n仅允许操作用户指定的Pro进程："+str(args.pid)),dict(role="user",content=args.goal)]
+    system = SYSTEM+"\n后台任务由当前API宿主自动轮询等待，不需要反复让模型查询。仅允许操作用户指定的Pro进程："+str(args.pid)
+    messages = [dict(role="system",content=system),dict(role="user",content=args.goal)]
     saved = {}
     if args.resume:
         saved = json.loads(Path(args.resume).read_text(encoding="utf-8"))
         if saved.get("processId") != args.pid:
             raise RuntimeError("恢复必须使用原Pro实例；重启后须重新开始并观察现状。")
-        messages = saved["messages"]+[dict(role="user",content=args.goal)]
+        messages = saved["messages"]
+        reconcile_interrupted_messages(messages, saved.get("pendingJobs", []))
+        messages.append(dict(role="user",content="继续上次任务。先刷新当前地图和上下文、核实已有结果及待确认任务，复用已完成成果，不要重复提交分析。\n"+args.goal))
+        if messages and messages[0].get("role")=="system":
+            messages[0] = dict(role="system",content=system)
     tools = []
     mcp = Mcp()
     try:
@@ -129,10 +190,11 @@ def run(args):
     allowed = {t["name"] for t in discovered}
     exports = saved.get("deliveries",[])
     pending = set(saved.get("pendingJobs",[]))
-    last_poll = {}
+    contexts = {}
+    current_map = saved.get("mapUri")
     def save():
         (output/"run.json").write_text(json.dumps(report,ensure_ascii=False,indent=2),encoding="utf-8")
-        (output/"conversation.json").write_text(json.dumps(dict(processId=args.pid,messages=messages,pendingJobs=sorted(pending),deliveries=exports),ensure_ascii=False,indent=2),encoding="utf-8")
+        (output/"conversation.json").write_text(json.dumps(dict(processId=args.pid,mapUri=current_map,messages=messages,pendingJobs=sorted(pending),deliveries=exports),ensure_ascii=False,indent=2),encoding="utf-8")
     try:
         for turn in range(args.max_turns):
             print("模型决策轮次 "+str(turn+1),flush=True)
@@ -169,22 +231,38 @@ def run(args):
                             raise ValueError("未发现此MCP工具。")
                         if name != "list_sessions" and arguments.get("processId") != args.pid:
                             raise ValueError("禁止操作其他Pro实例。")
+                        if name in ("set_layer_visibility","set_layer_presentation","style_raster") and arguments.get("snapshotId") in contexts:
+                            arguments, fresh = refresh_presentation_target(mcp, arguments, contexts[arguments["snapshotId"]])
+                            contexts[fresh["snapshotId"]] = fresh
                         if name == "start_analysis":
+                            canonicalize_plan(arguments.get("plan", {}))
                             arguments["requestId"] = str(uuid.uuid4())
                             pending.add(arguments["requestId"])
-                        if name == "get_analysis_job":
-                            job = arguments.get("jobId")
-                            time.sleep(max(0,2-(time.monotonic()-last_poll.get(job,0))))
-                            last_poll[job] = time.monotonic()
                         print("  调用 "+name,flush=True)
                         # Persist intent before mutation; a crash must not hide an uncertain submission.
                         report["events"].append(dict(kind="tool_intent",name=name,arguments=arguments))
                         save()
-                        result = mcp.rpc("tools/call",dict(name=name,arguments=arguments))
+                        if name == "get_analysis_job":
+                            previous_progress = [None]
+                            def progress(job):
+                                state = (job.get("status"), job.get("progress"))
+                                if state != previous_progress[0]:
+                                    previous_progress[0] = state
+                                    print("in_progress get_analysis_job "+str(job.get("status"))+" "+str(job.get("progress", "")),flush=True)
+                                    report["events"].append(dict(kind="job_progress",jobId=job["jobId"],status=job.get("status"),progress=job.get("progress")))
+                                    save()
+                            result = wait_for_analysis(mcp, arguments, progress)
+                        else:
+                            result = mcp.rpc("tools/call",dict(name=name,arguments=arguments))
                         if name == "start_analysis" and result.get("isError"):
                             pending.discard(arguments["requestId"])
                         if not result.get("isError"):
                             data = json.loads(result["content"][0]["text"])
+                            if name == "get_active_map":
+                                current_map = data.get("mapUri")
+                            if name == "get_analysis_context":
+                                current_map = arguments["mapUri"]
+                                contexts[data["snapshotId"]] = data
                             if name == "start_analysis" and not data.get("terminal"):
                                 pending.add(data["jobId"])
                             if name in ("get_analysis_job","cancel_analysis_job") and data.get("terminal"):
@@ -206,10 +284,7 @@ def run(args):
         report.update(status="interrupted",message=str(exc),pendingJobs=sorted(pending))
     finally:
         # Complete interrupted protocol turns without pretending their side effects failed.
-        replied = {m.get("tool_call_id") for m in messages if m["role"]=="tool"}
-        missing = [c for m in messages if m["role"]=="assistant" for c in m.get("tool_calls",[]) if c["id"] not in replied]
-        for c in missing:
-            messages.append(dict(role="tool",tool_call_id=c["id"],content="宿主中断，执行结果未知。先观察地图并查询待确认任务，不得盲目重复提交。待确认任务："+str(sorted(pending))))
+        reconcile_interrupted_messages(messages, pending)
         save()
         mcp.close()
         model.close()

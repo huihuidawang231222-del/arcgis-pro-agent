@@ -14,7 +14,7 @@ internal sealed class BridgeServer : IDisposable {
     readonly CancellationTokenSource stop=new();readonly ProDrawing drawing=new();readonly AnalysisBridge analysis=new();
     readonly string pipeName="ProCodex-"+Process.GetCurrentProcess().Id;
     readonly string endpoint=Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.LocalApplicationData),"ArcGISProCodex","endpoints",Process.GetCurrentProcess().Id+".json");
-    public void Start(){Directory.CreateDirectory(Path.GetDirectoryName(endpoint)!);File.WriteAllText(endpoint,JsonSerializer.Serialize(new{processId=Process.GetCurrentProcess().Id,pipe=pipeName,version="0.4.0"}));_=Task.Run(Loop);}
+    public void Start(){Directory.CreateDirectory(Path.GetDirectoryName(endpoint)!);File.WriteAllText(endpoint,JsonSerializer.Serialize(new{processId=Process.GetCurrentProcess().Id,pipe=pipeName,version="0.4.0",buildId=typeof(BridgeServer).Assembly.ManifestModule.ModuleVersionId.ToString("D")}));_=Task.Run(Loop);}
     async Task Loop(){while(!stop.IsCancellationRequested){
         try{using var pipe=new NamedPipeServerStream(pipeName,PipeDirection.InOut,1,PipeTransmissionMode.Byte,PipeOptions.Asynchronous|PipeOptions.CurrentUserOnly);
             await pipe.WaitForConnectionAsync(stop.Token);

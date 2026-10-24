@@ -100,6 +100,8 @@ For Zhipu, standard API and Coding subscriptions require matching credentials/en
 
 System-proxy use can be toggled locally. Direct connections worked in the development environment; forcing the system proxy previously produced a TLS EOF. Not every proxy combination is verified. Keep certificate validation enabled.
 
+In API mode, the host polls background jobs without spending extra model decisions. Subsequent messages continue available history for the same Pro process and map; changing the map/process starts fresh context. Close the old Agent window and reopen after updates. If the bridge build check reports a mismatch, save the project and restart Pro.
+
 ## 6. Natural-language mapping demonstrations
 
 Load trusted data into Pro and establish the study area, elevation units and coordinate system. Start with a copy or synthetic project.

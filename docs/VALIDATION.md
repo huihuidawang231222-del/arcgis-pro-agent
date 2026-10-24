@@ -22,6 +22,10 @@ Public-export check on 2026-10-24: bridge/transport build succeeded with zero wa
 
 ## Not established / 尚不能声称
 
+Reliability follow-up (2026-10-24): a real multi-stage task exhausted 60 model decisions after 44 job-status calls. The API host now polls jobs without additional model decisions, refreshes display-edit snapshots by stable layer URI, and preserves conversation state for continuation. Thirteen host regression checks cover long waits, timeout/no-resubmission, wrong processes, interrupted messages, URI remapping, statistics aliases and truthful completion. The desktop also checks the Pro bridge module build ID and requests a saved restart when it is stale. These targeted checks do not establish general production reliability.
+
+可靠性补充（2026-10-24）：真实多阶段任务曾因 44 次状态查询耗尽 60 轮模型决策。API 宿主现改为自行轮询，展示操作按稳定图层 URI 刷新快照，并保留接续对话。13 项宿主检查覆盖长等待、超时不重发、错误进程、中断消息、URI 重绑定、统计参数及真实完成状态；界面增加 Pro 桥接构建 ID 校验，旧进程需保存后重启。定向检查通过不等于已达到通用生产可靠性。
+
 - Every one of the 39 operations individually accepted on production data.
 - Compatibility with all Pro versions, client releases, model vendors or proxy setups.
 - Human visual review of every automatically exported map.

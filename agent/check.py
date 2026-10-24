@@ -5,7 +5,7 @@ from unittest.mock import patch
 import run
 
 class HostChecks(unittest.TestCase):
-    def execute(self,responses):
+    def execute(self,responses,rpc_handler=None,max_turns=5,resume_state=None):
         class Model:
             asks=0
             def __init__(self,_):pass
@@ -19,12 +19,17 @@ class HostChecks(unittest.TestCase):
             def __init__(self):pass
             def rpc(self,method,arguments):
                 self.calls.append((method,arguments))
-                if method=='tools/list':return {'tools':[{'name':'get_active_map','description':'test read','inputSchema':{'type':'object','properties':{'processId':{'type':'integer'}},'required':['processId']}}]}
+                if method=='tools/list':return {'tools':[{'name':name,'description':'test read','inputSchema':{'type':'object','properties':{'processId':{'type':'integer'}},'required':['processId']}} for name in ['get_active_map','get_analysis_job']]}
+                if rpc_handler is not None:return rpc_handler(method,arguments)
                 raise AssertionError('Unexpected GIS execution')
             def close(self):pass
         with tempfile.TemporaryDirectory(prefix='gis-agent-host-check-') as folder:
+            resume=None
+            if resume_state is not None:
+                resume=str(Path(folder)/'prior.json')
+                Path(resume).write_text(json.dumps(resume_state),encoding='utf-8')
             with patch.object(run,'ROOT',Path(folder)),patch.object(run,'settings',return_value={'model':'synthetic','provider':'test','endpoint':'https://example.invalid'}),patch.object(run,'Model',Model),patch.object(run,'Mcp',Mcp),contextlib.redirect_stdout(io.StringIO()):
-                run.run(argparse.Namespace(profile=None,pid=123,goal='测试目标',resume=None,max_turns=5))
+                run.run(argparse.Namespace(profile=None,pid=123,goal='测试目标',resume=resume,max_turns=max_turns))
             result=json.loads(next(Path(folder).rglob('run.json')).read_text(encoding='utf-8'))
             return result,Mcp.calls
     def call(self,name,args,n=1):
@@ -42,5 +47,85 @@ class HostChecks(unittest.TestCase):
         self.assertEqual(report['status'],'interrupted')
         self.assertEqual(report['events'],[])
         self.assertEqual(len(calls),1)
+
+    @patch.object(run.time,'sleep')
+    def test_long_job_wait_uses_one_model_decision(self,_sleep):
+        polls=[]
+        def rpc(method,arguments):
+            self.assertEqual(arguments['name'],'get_analysis_job')
+            polls.append(arguments)
+            job={'jobId':'fixture-job','status':'completed' if len(polls)==101 else 'running','terminal':len(polls)==101}
+            return {'content':[{'type':'text','text':json.dumps(job)}],'isError':False}
+        report,_=self.execute([self.call('get_analysis_job',{'processId':123,'jobId':'fixture-job'}),self.call('finish_task',{'status':'partial','message':'已完成分析，未导出'},2)],rpc_handler=rpc,max_turns=2)
+        self.assertEqual(len(polls),101)
+        self.assertEqual(sum(e['kind']=='model' for e in report['events']),2)
+        self.assertEqual(report['message'],'已完成分析，未导出')
+
+    def test_job_error_not_retried(self):
+        class Mcp:
+            calls=0
+            def rpc(self,*_):
+                self.calls+=1
+                return {'isError':True,'content':[{'type':'text','text':'fixture failure'}]}
+        mcp=Mcp()
+        self.assertTrue(run.wait_for_analysis(mcp,{'jobId':'fixture'},lambda _:None)['isError'])
+        self.assertEqual(mcp.calls,1)
+
+    def test_poll_timeout_preserves_uncertain_state(self):
+        class Mcp:
+            def rpc(self,*_):return {'content':[{'type':'text','text':json.dumps({'jobId':'fixture','terminal':False})}]}
+        with self.assertRaisesRegex(RuntimeError,'不得重复提交'):
+            run.wait_for_analysis(Mcp(),{'jobId':'fixture'},lambda _:None,timeout=0)
+
+    def test_job_id_mismatch_stops(self):
+        class Mcp:
+            def rpc(self,*_):return {'content':[{'type':'text','text':json.dumps({'jobId':'other','terminal':True})}]}
+        with self.assertRaisesRegex(RuntimeError,'ID不匹配'):
+            run.wait_for_analysis(Mcp(),{'jobId':'fixture'},lambda _:None)
+
+    def test_statistics_alias_is_scoped_and_conflicts_rejected(self):
+        plan={'steps':[{'operation':'summary_statistics','parameters':{'group_field':'fclass','field':'osm_id','statistic':'COUNT'}},{'operation':'points_to_line','parameters':{'group_field':'road'}}]}
+        run.canonicalize_plan(plan)
+        self.assertEqual(plan['steps'][0]['parameters']['fields'],['fclass'])
+        self.assertEqual(plan['steps'][1]['parameters']['group_field'],'road')
+        with self.assertRaises(ValueError):run.canonicalize_plan({'steps':[{'operation':'summary_statistics','parameters':{'group_field':'a','fields':['b']}}]})
+
+    def test_resume_reconciles_existing_job_without_resubmission(self):
+        def rpc(method,arguments):
+            self.assertEqual(arguments['name'],'get_analysis_job')
+            return {'content':[{'type':'text','text':json.dumps({'jobId':'existing','terminal':True,'status':'completed'})}]}
+        state={'processId':123,'messages':[{'role':'system','content':'old instructions'},{'role':'user','content':'prior goal'}],'pendingJobs':['existing'],'deliveries':[]}
+        report,calls=self.execute([self.call('get_analysis_job',{'processId':123,'jobId':'existing'}),self.call('finish_task',{'status':'partial','message':'已核对原任务'},2)],rpc_handler=rpc,resume_state=state)
+        self.assertEqual(report['message'],'已核对原任务')
+        self.assertFalse(any(arguments.get('name')=='start_analysis' for _,arguments in calls))
+
+    def test_resume_rejects_different_pro_process(self):
+        with self.assertRaisesRegex(RuntimeError,'原Pro实例'):
+            self.execute([],resume_state={'processId':999,'messages':[]})
+
+    def test_display_edit_tracks_uri_after_layer_reordering(self):
+        class Mcp:
+            def rpc(self,*_):return {'content':[{'type':'text','text':json.dumps({'snapshotId':'new','inputs':[{'id':'L1','layerUri':'other'},{'id':'L9','layerUri':'target'}]})}]}
+        old={'inputs':[{'id':'L1','layerUri':'target'}]}
+        args={'processId':123,'mapUri':'map','snapshotId':'old','layerId':'L1','visible':False}
+        actual,_=run.refresh_presentation_target(Mcp(),args,old)
+        self.assertEqual(actual['layerId'],'L9')
+        self.assertEqual(actual['snapshotId'],'new')
+        self.assertEqual(args['layerId'],'L1')
+
+    def test_display_edit_refuses_removed_target(self):
+        class Mcp:
+            def rpc(self,*_):return {'content':[{'type':'text','text':json.dumps({'snapshotId':'new','inputs':[]})}]}
+        with self.assertRaisesRegex(ValueError,'未执行修改'):
+            run.refresh_presentation_target(Mcp(),{'processId':123,'mapUri':'map','layerId':'L1'},{'inputs':[{'id':'L1','layerUri':'removed'}]})
+
+    def test_crash_resume_marks_unanswered_calls_unknown_once(self):
+        messages=[self.call('start_analysis',{},1)]
+        run.reconcile_interrupted_messages(messages,['pending-job'])
+        run.reconcile_interrupted_messages(messages,['pending-job'])
+        replies=[message for message in messages if message['role']=='tool']
+        self.assertEqual(len(replies),1)
+        self.assertIn('结果未知',replies[0]['content'])
+        self.assertIn('pending-job',replies[0]['content'])
 
 if __name__=='__main__':unittest.main()
