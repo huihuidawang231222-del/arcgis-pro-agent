@@ -1,0 +1,17 @@
+<Project Sdk="Microsoft.NET.Sdk">
+  <PropertyGroup>
+    <TargetFramework>net6.0-windows</TargetFramework><UseWPF>true</UseWPF><Nullable>enable</Nullable><ImplicitUsings>disable</ImplicitUsings><PlatformTarget>x64</PlatformTarget><LangVersion>10</LangVersion>
+    <ArcGISProDir Condition="'$(ArcGISProDir)'==''">$(ProgramFiles)\ArcGIS\Pro</ArcGISProDir>
+    <NoWarn>$(NoWarn);CA1416</NoWarn>
+  </PropertyGroup>
+  <ItemGroup><ProjectReference Include="..\Core\CodexBridge.csproj" /></ItemGroup>
+  <ItemGroup>
+    <Reference Include="ArcGIS.Desktop.Layouts"><HintPath>$(ArcGISProDir)\bin\Extensions\Layout\ArcGIS.Desktop.Layouts.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Core"><HintPath>$(ArcGISProDir)\bin\ArcGIS.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Framework"><HintPath>$(ArcGISProDir)\bin\ArcGIS.Desktop.Framework.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Shared.Wpf"><HintPath>$(ArcGISProDir)\bin\ArcGIS.Desktop.Shared.Wpf.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Core"><HintPath>$(ArcGISProDir)\bin\Extensions\Core\ArcGIS.Desktop.Core.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Mapping"><HintPath>$(ArcGISProDir)\bin\Extensions\Mapping\ArcGIS.Desktop.Mapping.dll</HintPath><Private>false</Private></Reference>
+    <Reference Include="ArcGIS.Desktop.Extensions"><HintPath>$(ArcGISProDir)\bin\Extensions\DesktopExtensions\ArcGIS.Desktop.Extensions.dll</HintPath><Private>false</Private></Reference>
+  </ItemGroup>
+</Project>

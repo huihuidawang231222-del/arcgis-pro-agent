@@ -1,0 +1,21 @@
+{
+  "name": "arcgis-pro-map",
+  "version": "0.4.1",
+  "description": "在 Codex 中用自然语言连接本机 ArcGIS Pro，读取数据、处理分析、符号化、标注并导出地图。",
+  "author": {"name": "ArcGIS Pro Agent 本地项目"},
+  "skills": "./skills/",
+  "mcpServers": "./.mcp.json",
+  "requires_local_executor": true,
+  "interface": {
+    "displayName": "ArcGIS Pro 自然语言制图",
+    "shortDescription": "直接在 Codex 中连接 ArcGIS Pro、分析数据并自主成图",
+    "longDescription": "连接当前 Windows 用户已打开的 ArcGIS Pro 二维地图。由 Codex 自主选择 MCP 工具进行数据核验、受控空间分析、符号化、标注与 PNG/PDF 导出。无需启动额外聊天界面，无需为插件填写模型密钥。需安装 Pro 端连接桥。本地桌面插件，不支持云端直接访问本机 Pro。",
+    "developerName": "ArcGIS Pro Agent 本地项目",
+    "category": "Productivity",
+    "capabilities": ["Read", "Write", "Interactive"],
+    "brandColor": "#24624D",
+    "composerIcon": "./assets/icon.png",
+    "logo": "./assets/icon.png",
+    "defaultPrompt": ["连接 ArcGIS Pro，检查当前地图与可用数据", "基于当前数据制作地形图，核验结果并导出 PNG 和 PDF", "检查目标工程数据，为路网密度分析选择合适参数并制作专题图"]
+  }
+}

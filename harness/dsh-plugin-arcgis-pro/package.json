@@ -1,0 +1,11 @@
+{
+  "name": "dsh-plugin-arcgis-pro",
+  "version": "0.4.2",
+  "private": true,
+  "type": "module",
+  "description": "通过 MCP 在 DeepSeek Harness 中连接本机 ArcGIS Pro，自然语言分析与制图。",
+  "exports": {"./locale/*.json": "./locale/*.json", "./icon": "./icon.svg"},
+  "files": ["cordis.patch.yml", "locale/*.json", "icon.svg", "README.md", "server.py", "mcp/*.py", "mcp/*.json", "instructions.md"],
+  "engines": {"dsh": ">=0.2.0-0 <0.3.0"},
+  "dsh": {"bundle": {"patch": "./cordis.patch.yml", "listedByDefault": true}}
+}

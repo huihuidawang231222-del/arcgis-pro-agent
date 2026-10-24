@@ -1,0 +1,12 @@
+{
+  "name": "arcgis-local",
+  "interface": {"displayName": "ArcGIS Pro 本地插件"},
+  "plugins": [
+    {
+      "name": "arcgis-pro-map",
+      "source": {"source": "local", "path": "./plugins/arcgis-pro-map"},
+      "policy": {"installation": "AVAILABLE", "authentication": "ON_USE"},
+      "category": "Productivity"
+    }
+  ]
+}
